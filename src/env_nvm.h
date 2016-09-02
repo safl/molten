@@ -27,7 +27,7 @@ class NVMRandomAccessFile : public RandomAccessFile {
   NVMRandomAccessFile(void);
   ~NVMRandomAccessFile(void);
 
-  Status Read(uint64_t offset, size_t n, Slice* result, char* scratch);
+  Status Read(uint64_t offset, size_t n, Slice* result, char* scratch) const;
 
   bool ShouldForwardRawRequest(void) const;
 
@@ -39,6 +39,8 @@ class NVMRandomAccessFile : public RandomAccessFile {
 
   Status InvalidateCache(size_t offset, size_t length);
 
+protected:
+  std::string fname_;
 };
 
 class NVMWritableFile {

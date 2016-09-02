@@ -12,7 +12,7 @@ all: clean e01 run
 
 e01:
 	@mkdir -p bin
-	${CXX} env_nvm.cc e01.cc -o bin/e01 \
+	${CXX} env_nvm_rfile.cc env_nvm_sfile.cc env_nvm_wfile.cc env_nvm.cc e01.cc -o bin/e01 \
 		${RDB_LIB} -I${RDB_INC} ${RDB_FLAGS} ${CXX_LIBS} ${CXX_FLAGS}
 
 clean:

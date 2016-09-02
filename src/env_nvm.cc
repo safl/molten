@@ -4,48 +4,14 @@
 
 namespace rocksdb {
 
-//
-//      SEQUENTIAL FILE
-//
-NVMSequentialFile::NVMSequentialFile(void) : SequentialFile() {}
-
-NVMSequentialFile::NVMSequentialFile(const std::string& fname,
-                                     const EnvOptions& options) : SequentialFile() {
-  fname_ = fname;
-}
-
-NVMSequentialFile::~NVMSequentialFile(void) { }
-
-Status NVMSequentialFile::Read(size_t n, Slice* result, char* scratch) {
-
-  return Status::OK();
-}
-
-Status NVMSequentialFile::Skip(uint64_t n) {
-
-  return Status::OK();
-}
-
-Status NVMSequentialFile::InvalidateCache(size_t offset, size_t length) {
-
-  return Status::OK();
-}
-
-Status EnvNVM::NewSequentialFile(const std::string& fname,
-                                 unique_ptr<SequentialFile>* result,
-                                 const EnvOptions& options) {
-  // TODO: put something into result
-
-  result->reset(new NVMSequentialFile(fname, options));
-
-  return Status::OK();
-}
-
 Status EnvNVM::NewRandomAccessFile(const std::string& fname,
                                    unique_ptr<RandomAccessFile>* result,
                                    const EnvOptions& options) {
 
-  //result->reset(new NVMRandomAccessFile(fname, options));
+  unique_ptr<NVMRandomAccessFile> file(new NVMRandomAccessFile(fname, options));
+
+  *result = std::move(file);
+
   return Status::OK();
 }
 
