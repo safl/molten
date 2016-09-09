@@ -1,6 +1,100 @@
 #include "rocksdb/env.h"
 
+#ifndef __NVM_DEBUG_H
+#define __NVM_DEBUG_H
+
+#include <stdio.h>
+
+#ifdef NVM_DEBUG_ENABLED
+	#define NVM_DEBUG(x, ...) printf("%s:%s-%d: " x "\n", __FILE__, \
+		__FUNCTION__, __LINE__, ##__VA_ARGS__);fflush(stdout);
+#else
+	#define NVM_DEBUG(x, ...)
+#endif
+#endif /* __NVM_DEBUG_H */
+
 namespace rocksdb {
+
+class EnvNVM;
+class NVMDirectory;
+class NVMFile;
+class NVMSequentialFile;
+class NVMWritableFile;
+class NVMRandomAccessFile;
+
+class NVMFile {
+ public:
+  explicit NVMFile(Env* env, const std::string& name);
+
+  void Ref(void);
+  void Unref(void);
+  
+  Status Read(uint64_t offset, size_t n, Slice* result, char* scratch) const;
+  
+  uint64_t ModifiedTime(void) const;
+
+  Status Append(const Slice& data);
+  Status PositionedAppend(const Slice& data, uint64_t offset);
+    void Truncate(size_t size);
+  Status Truncate(uint64_t size);
+  Status Close(void);
+  Status Sync(void);
+  Status Fsync(void);
+
+  bool IsSyncThreadSafe() const;
+  void SetIOPriority(Env::IOPriority pri);
+  Env::IOPriority GetIOPriority();
+  uint64_t GetFileSize();
+  uint64_t Size(void) const;
+
+  void GetPreallocationStatus(size_t* block_size,
+                              size_t* last_allocated_block);
+  size_t GetUniqueId(char* id, size_t max_size) const;
+  Status InvalidateCache(size_t offset, size_t length);
+
+  void SetPreallocationBlockSize(size_t size);
+  void PrepareWrite(size_t offset, size_t len);
+
+ private:
+  // Private since only Unref() should be used to delete it.
+  ~NVMFile();
+  // No copying allowed.
+  MemFile(const MemFile&);
+  void operator=(const MemFile&);
+
+  Env* env_;
+  const std::string name_;
+  int refs_;
+};
+
+class NVMDirectory : public Directory {
+ public:
+  explicit NVMDirectory(std::string name);
+  NVMDirectory(void);
+  ~NVMDirectory(void);
+  Status Fsync(void);
+  std::string getName(void);
+
+ private:
+  std::string name_;
+  std::vector<NVMFile> files_;
+  std::vector<NVMDirectory> dirs_;
+};
+
+class NVMLogger : public Logger {
+ public:
+  explicit NVMLogger(const InfoLogLevel log_level = InfoLogLevel::INFO_LEVEL)
+      : Logger(log_level) {}
+
+  // Brings overloaded Logv()s into scope so they're not hidden when we override
+  // a subset of them.
+  using Logger::Logv;
+
+  virtual void Logv(const char* format, va_list ap) override {
+    vfprintf(stderr, format, ap);
+    fprintf(stderr, "\n");
+  }
+};
 
 class NVMSequentialFile : public SequentialFile {
 public:
@@ -43,45 +137,44 @@ protected:
   std::string fname_;
 };
 
-class NVMWritableFile {
+class NVMWritableFile : public WritableFile {
 public:
-  NVMWritableFile(const std::string& fname,
+  NVMWritableFile(NVMFile *file,
                   const EnvOptions& options);
-
   NVMWritableFile(void);
   ~NVMWritableFile(void);
 
-  bool UseOSBuffer(void) const;
+  bool UseOSBuffer(void) const override;
 
-  Status Append(const Slice& data);
+  Status Append(const Slice& data) override;
 
-  Status PositionedAppend(const Slice& data, uint64_t offset);
+  Status PositionedAppend(const Slice& data, uint64_t offset) override;
 
-  Status Truncate(uint64_t size);
+  Status Truncate(uint64_t size) override;
 
-  Status Close();
+  Status Close(void) override;
 
-  Status Flush();
+  Status Flush(void) override;
 
-  Status Sync();
+  Status Sync(void) override;
 
-  Status Fsync();
+  Status Fsync(void) override;
 
-  bool IsSyncThreadSafe() const;
+  bool IsSyncThreadSafe(void) const override;
 
-  bool UseDirectIO() const;
+  bool UseDirectIO(void) const override;
 
-  size_t GetUniqueId(char* id, size_t max_size) const;
+  size_t GetUniqueId(char* id, size_t max_size) const override;
 
-  Status InvalidateCache(size_t offset, size_t length);
+  Status InvalidateCache(size_t offset, size_t length) override;
 
-  Status RangeSync(uint64_t offset, uint64_t nbytes);
+  Status RangeSync(uint64_t offset, uint64_t nbytes) override;
 
-  void PrepareWrite(size_t offset, size_t len);
+  void PrepareWrite(size_t offset, size_t len) override;
 
 protected:
 
-  Status Allocate(uint64_t offset, uint64_t len);
+  Status Allocate(uint64_t offset, uint64_t len) override;
 
 private:
 
@@ -90,108 +183,85 @@ private:
   void operator=(const WritableFile&);
   void operator=(const NVMWritableFile&);
 
-};
+  NVMFile *file_;
+protected:
 
-class NVMDirectory : public Directory {
-public:
-
-  NVMDirectory(const std::string& name);
-  ~NVMDirectory() {}
-
-  // Fsync directory. Can be called concurrently from multiple threads.
-  Status Fsync();
-};
-
-class NVMLogger {
-public:
-  NVMLogger(const InfoLogLevel log_level = InfoLogLevel::INFO_LEVEL);
-  ~NVMLogger();
-
-  void LogHeader(const char* format, va_list ap);
-  void Logv(const char* format, va_list ap);
-  void Logv(const InfoLogLevel log_level, const char* format, va_list ap);
-
-  size_t GetLogFileSize() const;
-  InfoLogLevel GetInfoLogLevel() const;
-  void SetInfoLogLevel(const InfoLogLevel log_level);
-
-  void Flush();
-
-private:
-  // No copying allowed
-  NVMLogger(const NVMLogger&);
-  NVMLogger(const Logger&);
-  void operator=(const NVMLogger&);
-  void operator=(const Logger&);
 };
 
 class EnvNVM : public Env {
+  public:
+  EnvNVM(void);
+
+  Status NewLogger(const std::string& fname,
+                   shared_ptr<Logger>* result) override;
+
+  Status NewDirectory(const std::string& dname,
+                      unique_ptr<Directory>* result) override;
 
   Status NewSequentialFile(const std::string& fname,
                            unique_ptr<SequentialFile>* result,
-                           const EnvOptions& options);
+                           const EnvOptions& options) override;
 
   Status NewRandomAccessFile(const std::string& fname,
                              unique_ptr<RandomAccessFile>* result,
-                             const EnvOptions& options);
+                             const EnvOptions& options) override;
 
   Status NewWritableFile(const std::string& fname,
                          unique_ptr<WritableFile>* result,
-                         const EnvOptions& options);
+                         const EnvOptions& options) override;
 
-  Status NewDirectory(const std::string& name,
-                      unique_ptr<Directory>* result);
+  Status GetChildren(const std::string& dname,
+                     std::vector<std::string>* result) override;
 
-  Status FileExists(const std::string& fname);
+  Status GetTestDirectory(std::string* dname) override;
 
-  Status GetChildren(const std::string& dir,
-                     std::vector<std::string>* result);
+  Status DeleteFile(const std::string& fname) override;
 
-  Status DeleteFile(const std::string& fname);
+  Status CreateDir(const std::string& dname) override;
 
-  Status CreateDir(const std::string& name);
+  Status CreateDirIfMissing(const std::string& dname) override;
 
-  Status CreateDirIfMissing(const std::string& name);
+  Status DeleteDir(const std::string& dname) override;
 
-  Status DeleteDir(const std::string& dirname);
+  Status FileExists(const std::string& fname) override;
 
-  Status GetFileSize(const std::string& f, uint64_t* s);
+  Status GetFileSize(const std::string& fname, uint64_t* s) override;
 
   Status GetFileModificationTime(const std::string& fname,
-                                 uint64_t* file_mtime);
+                                 uint64_t* file_mtime) override;
 
-  Status RenameFile(const std::string& s, const std::string& t);
+  Status RenameFile(const std::string& fname_s, const std::string& fname_t) override;
 
-  Status LockFile(const std::string& f, FileLock** l);
+  Status LockFile(const std::string& fname, FileLock** lock) override;
 
-  Status UnlockFile(FileLock* l);
+  Status UnlockFile(FileLock* lock) override;
 
   void Schedule(void (*f)(void* arg), void* a, Priority pri,
-                void* tag = nullptr, void (*u)(void* arg) = 0);
+                void* tag = nullptr, void (*u)(void* arg) = 0) override;
 
-  void StartThread(void (*f)(void*), void* a);
+  void StartThread(void (*f)(void*), void* a) override;
 
-  Status GetTestDirectory(std::string* path);
+  void SleepForMicroseconds(int micros) override;
 
-  Status NewLogger(const std::string& fname,
-                   shared_ptr<Logger>* result);
+  void SetBackgroundThreads(int num, Priority pri) override;
 
-  uint64_t NowMicros();
+  void IncBackgroundThreadsIfNeeded(int num, Priority pri) override;
 
-  void SleepForMicroseconds(int micros);
+  Status GetHostName(char* name, uint64_t len) override;
 
-  Status GetHostName(char* name, uint64_t len);
+  Status GetCurrentTime(int64_t* unix_time) override;
 
-  Status GetCurrentTime(int64_t* unix_time);
+  Status GetAbsolutePath(const std::string& path,
+                         std::string* output_path) override;
 
-  Status GetAbsolutePath(const std::string& db_path,
-                         std::string* output_path);
+  uint64_t NowMicros(void) override;
 
-  void SetBackgroundThreads(int num, Priority pri);
+  std::string TimeToString(uint64_t time) override;
 
-  std::string TimeToString(uint64_t time);
+private:
+  NVMFile* find(const std::string& fname);
 
-  void IncBackgroundThreadsIfNeeded(int num, Priority pri);
+  NVMDirectory* fs_;
 
 };
 

@@ -1,10 +1,6 @@
-#include <cstdio>
-#include <string>
+#include <iostream>
 
 #include "rocksdb/db.h"
-#include "rocksdb/slice.h"
-#include "rocksdb/options.h"
-
 #include "env_nvm.h"
 
 using namespace rocksdb;
