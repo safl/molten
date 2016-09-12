@@ -108,7 +108,7 @@ Status EnvNVM::DeleteDir(const std::string& dirname) {
 }
 
 Status EnvNVM::GetFileSize(const std::string& f, uint64_t* s) {
-  NVM_DEBUG("f(%s), s(%d)\n", f.c_str(), *s);
+  NVM_DEBUG("f(%s), s(%lu)\n", f.c_str(), *s);
 
   return Status::IOError();
 }
@@ -148,7 +148,7 @@ void EnvNVM::Schedule(
   void (*unschedFunction)(void* arg)
 ) {
   NVM_DEBUG("function(%p), arg(%p), pri(%d), tag(%p), unschedFunction(%p)\n",
-            function, arg, pri, tag, unchedFunction);
+            function, arg, pri, tag, unschedFunction);
 }
 
 int EnvNVM::UnSchedule(void* arg, Priority pri) {
@@ -165,7 +165,6 @@ void EnvNVM::StartThread(
 
   return;
 }
-
 
 void EnvNVM::WaitForJoin(void) {
   NVM_DEBUG("\n");
@@ -231,13 +230,13 @@ void EnvNVM::SleepForMicroseconds(int micros) {
 }
 
 Status EnvNVM::GetHostName(char* name, uint64_t len) {
-  NVM_DEBUG("name(%s), len(%d)\n", name, len);
+  NVM_DEBUG("name(%s), len(%lu)\n", name, len);
 
   return Status::IOError();
 }
 
 Status EnvNVM::GetCurrentTime(int64_t* unix_time) {
-  NVM_DEBUG("unix_time(%d)\n", *unix_time);
+  NVM_DEBUG("unix_time(%ld)\n", *unix_time);
 
   *unix_time = time(0);
 
@@ -245,7 +244,7 @@ Status EnvNVM::GetCurrentTime(int64_t* unix_time) {
 }
 
 std::string EnvNVM::TimeToString(uint64_t stamp) {
-  NVM_DEBUG("stamp(%d)\n", stamp);
+  NVM_DEBUG("stamp(%lu)\n", stamp);
 
   const int BUF_LEN = 100;
   char buf [BUF_LEN];
@@ -284,4 +283,3 @@ void EnvNVM::IncBackgroundThreadsIfNeeded(int num, Priority pri) {
 }
 
 }       // namespace rocksdb
-

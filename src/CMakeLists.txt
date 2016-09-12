@@ -24,6 +24,7 @@ set(HEADER_FILES
 set(SOURCE_FILES
 	e01.cc
 	env_nvm.cc
+	env_nvm_file.cc
 	env_nvm_rfile.cc
 	env_nvm_sfile.cc
 	env_nvm_wfile.cc)

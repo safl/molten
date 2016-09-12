@@ -27,7 +27,7 @@ Status NVMRandomAccessFile::Read(uint64_t offset,
                                  Slice* result,
                                  char* scratch) const {
 
-  NVM_DEBUG("offset(%lu), n(%d), result(?), scratch(?)\n", offset, n);
+  NVM_DEBUG("offset(%lu), n(%lu), result(?), scratch(?)\n", offset, n);
 
   return Status::IOError();
 }
@@ -45,7 +45,7 @@ void NVMRandomAccessFile::EnableReadAhead(void) {
 }
 
 size_t NVMRandomAccessFile::GetUniqueId(char* id, size_t max_size) const {
-  NVM_DEBUG("id(%s), max_size(%d)\n", *id, max_size);
+  NVM_DEBUG("id(%s), max_size(%lu)\n", id, max_size);
 
   return 0;
 }
@@ -57,7 +57,7 @@ void NVMRandomAccessFile::Hint(AccessPattern pattern)
 
 Status NVMRandomAccessFile::InvalidateCache(size_t offset, size_t length)
 {
-  NVM_DEBUG("offset(%d), length(%d)\n");
+  NVM_DEBUG("offset(%lu), length(%lu)\n", offset, length);
 
   return Status::IOError();
 }

@@ -24,7 +24,11 @@ class NVMRandomAccessFile;
 
 class NVMFile {
  public:
+  NVMFile(void);
   explicit NVMFile(Env* env, const std::string& name);
+
+  bool UseOSBuffer() const;
+  bool UseDirectIO() const;
 
   Status Read(uint64_t offset, size_t n, Slice* result, char* scratch) const;
   Status Append(const Slice& data);
@@ -33,9 +37,14 @@ class NVMFile {
   Status Close(void);
   Status Sync(void);
   Status Fsync(void);
+  Status Flush(void);
+
+  Status RangeSync(uint64_t offset, uint64_t nbytes);
 
   uint64_t ModifiedTime(void) const;
-  uint64_t GetFileSize();
+
+  uint64_t GetFileSize(void);
+
   uint64_t Size(void) const;
 
   bool IsSyncThreadSafe() const;
@@ -52,9 +61,16 @@ class NVMFile {
   void Ref(void);
   void Unref(void);
 
+ protected:
+  /*
+   * Pre-allocate space for a file.
+   */
+  Status Allocate(uint64_t offset, uint64_t len);
+
  private:
   // Private since only Unref() should be used to delete it.
   ~NVMFile();
+
   // No copying allowed.
   NVMFile(const NVMFile&);
   void operator=(const NVMFile&);
@@ -121,7 +137,7 @@ class NVMRandomAccessFile : public RandomAccessFile {
 
   void EnableReadAhead(void);
 
-  size_t GetUniqueId(char* id, size_t max_size) const;
+  virtual size_t GetUniqueId(char* id, size_t max_size) const override;
 
   void Hint(AccessPattern pattern);
 
@@ -133,48 +149,96 @@ protected:
 
 class NVMWritableFile : public WritableFile {
 public:
-  NVMWritableFile(const std::string& fname, const EnvOptions& options);
+  NVMWritableFile(NVMFile *file, const EnvOptions& options);
   NVMWritableFile(void);
   ~NVMWritableFile(void);
 
-  bool UseOSBuffer(void) const override;
+  // Indicates if the class makes use of unbuffered I/O
+  virtual bool UseOSBuffer() const override;
 
-  Status Append(const Slice& data) override;
+  // This is needed when you want to allocate
+  // AlignedBuffer for use with file I/O classes
+  // Used for unbuffered file I/O when UseOSBuffer() returns false
+  virtual size_t GetRequiredBufferAlignment(void) const override;
 
-  Status PositionedAppend(const Slice& data, uint64_t offset) override;
+  virtual Status Append(const Slice& data) override;
 
-  Status Truncate(uint64_t size) override;
+  // Positioned write for unbuffered access default forward to simple append as
+  // most of the tests are buffered by default
+  virtual Status PositionedAppend(const Slice& data, uint64_t offset) override;
 
-  Status Close(void) override;
+  // Truncate is necessary to trim the file to the correct size before closing.
+  // It is not always possible to keep track of the file size due to whole pages
+  // writes. The behavior is undefined if called with other writes to follow.
+  virtual Status Truncate(uint64_t size) override;
 
-  Status Flush(void) override;
+  virtual Status Close() override;
+  virtual Status Flush() override;
+  virtual Status Sync() override; // sync data
 
-  Status Sync(void) override;
+  /*
+   * Sync data and/or metadata as well.
+   * By default, sync only data.
+   * Override this method for environments where we need to sync
+   * metadata as well.
+   */
+  virtual Status Fsync() override;
 
-  Status Fsync(void) override;
+  // true if Sync() and Fsync() are safe to call concurrently with Append()
+  // and Flush().
+  virtual bool IsSyncThreadSafe() const override;
 
-  bool IsSyncThreadSafe(void) const override;
+  // Indicates the upper layers if the current WritableFile implementation
+  // uses direct IO.
+  virtual bool UseDirectIO() const override;
 
-  bool UseDirectIO(void) const override;
+  /*
+   * Change the priority in rate limiter if rate limiting is enabled.
+   * If rate limiting is not enabled, this call has no effect.
+   */
+  virtual void SetIOPriority(Env::IOPriority pri) override;
 
-  size_t GetUniqueId(char* id, size_t max_size) const override;
+  virtual Env::IOPriority GetIOPriority(void) override;
 
-  Status InvalidateCache(size_t offset, size_t length) override;
+  /*
+   * Get the size of valid data in the file.
+   */
+  virtual uint64_t GetFileSize() override;
 
-  Status RangeSync(uint64_t offset, uint64_t nbytes) override;
+  // For documentation, refer to RandomAccessFile::GetUniqueId()
+  virtual size_t GetUniqueId(char* id, size_t max_size) const override;
 
-  void PrepareWrite(size_t offset, size_t len) override;
+  // Remove any kind of caching of data from the offset to offset+length
+  // of this file. If the length is 0, then it refers to the end of file.
+  // If the system is not caching the file contents, then this is a noop.
+  // This call has no effect on dirty pages in the cache.
+  virtual Status InvalidateCache(size_t offset, size_t length) override;
 
-protected:
+  // Sync a file range with disk.
+  // offset is the starting byte of the file range to be synchronized.
+  // nbytes specifies the length of the range to be synchronized.
+  // This asks the OS to initiate flushing the cached data to disk,
+  // without waiting for completion.
+  // Default implementation does nothing.
+  virtual Status RangeSync(uint64_t offset, uint64_t nbytes) override;
 
-  Status Allocate(uint64_t offset, uint64_t len) override;
+  // PrepareWrite performs any necessary preparation for a write
+  // before the write actually occurs.  This allows for pre-allocation
+  // of space on devices where it can result in less file
+  // fragmentation and/or less waste from over-zealous filesystem
+  // pre-allocation.
+  virtual void PrepareWrite(size_t offset, size_t len) override;
 
-private:
+ protected:
+  /*
+   * Pre-allocate space for a file.
+   */
+  virtual Status Allocate(uint64_t offset, uint64_t len) override;
 
-  NVMWritableFile(const WritableFile&);   // No copying allowed
-  NVMWritableFile(const NVMWritableFile&);
+ private:
+  // No copying allowed
+  NVMWritableFile(const WritableFile&);
   void operator=(const WritableFile&);
-  void operator=(const NVMWritableFile&);
 
 protected:
   NVMFile *file_;
