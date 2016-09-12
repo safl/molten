@@ -8,32 +8,52 @@ namespace rocksdb {
 
 EnvNVM::EnvNVM(void) : Env(), fs_(NULL) {}
 
-Status EnvNVM::NewSequentialFile(const std::string& fname,
-                         unique_ptr<SequentialFile>* result,
-                         const EnvOptions& options) {
+Status EnvNVM::NewSequentialFile(
+  const std::string& fname,
+  unique_ptr<SequentialFile>* result,
+  const EnvOptions& options
+) {
    NVM_DEBUG("fname(%s), result(?), options(?)\n", fname.c_str());
 
   return Status::IOError();
 }
 
-Status EnvNVM::NewRandomAccessFile(const std::string& fname,
-                                   unique_ptr<RandomAccessFile>* result,
-                                   const EnvOptions& options) {
+Status EnvNVM::NewRandomAccessFile(
+  const std::string& fname,
+  unique_ptr<RandomAccessFile>* result,
+  const EnvOptions& options
+) {
   NVM_DEBUG("fname(%s), result(?), options(?)\n", fname.c_str());
 
   return Status::IOError();
 }
 
-Status EnvNVM::NewWritableFile(const std::string& fname,
-                       unique_ptr<WritableFile>* result,
-                       const EnvOptions& options) {
+Status EnvNVM::NewWritableFile(
+  const std::string& fname,
+  unique_ptr<WritableFile>* result,
+  const EnvOptions& options
+) {
   NVM_DEBUG("fname(%s), result(?), options(?)\n", fname.c_str());
 
   return Status::IOError();
 }
 
-Status EnvNVM::NewDirectory(const std::string& name,
-                    unique_ptr<Directory>* result) {
+Status EnvNVM::ReuseWritableFile(
+  const std::string& fname,
+  const std::string& old_fname,
+  unique_ptr<WritableFile>* result,
+  const EnvOptions& options
+) {
+  NVM_DEBUG("fname(%s), old_fname(%s), result(?), options(?)\n",
+            fname.c_str(), old_fname.c_str());
+
+  return Status::IOError();
+}
+
+Status EnvNVM::NewDirectory(
+  const std::string& name,
+  unique_ptr<Directory>* result
+) {
   NVM_DEBUG("name(%s), result(?)\n", name.c_str());
 
   return Status::IOError();
@@ -45,8 +65,19 @@ Status EnvNVM::FileExists(const std::string& fname) {
   return Status::NotFound();
 }
 
-Status EnvNVM::GetChildren(const std::string& dir,
-                   std::vector<std::string>* result) {
+Status EnvNVM::GetChildren(
+  const std::string& dir,
+  std::vector<std::string>* result
+) {
+  NVM_DEBUG("dir(%s), result(?)\n", dir.c_str());
+
+  return Status::IOError();
+}
+
+Status EnvNVM::GetChildrenFileAttributes(
+  const std::string& dir,
+  std::vector<FileAttributes>* result
+) {
   NVM_DEBUG("dir(%s), result(?)\n", dir.c_str());
 
   return Status::IOError();
@@ -82,8 +113,10 @@ Status EnvNVM::GetFileSize(const std::string& f, uint64_t* s) {
   return Status::IOError();
 }
 
-Status EnvNVM::GetFileModificationTime(const std::string& fname,
-                               uint64_t* file_mtime) {
+Status EnvNVM::GetFileModificationTime(
+  const std::string& fname,
+  uint64_t* file_mtime
+) {
   NVM_DEBUG("\n");
 
   return Status::IOError();
@@ -107,29 +140,71 @@ Status EnvNVM::UnlockFile(FileLock* lock) {
   return Status::IOError();
 }
 
-void EnvNVM::Schedule(void (*f)(void* arg), void* a, Priority pri,
-              void* tag, void (*u)(void* arg)) {
+void EnvNVM::Schedule(
+  void (*function)(void* arg),
+  void* arg,
+  Priority pri,
+  void* tag,
+  void (*unschedFunction)(void* arg)
+) {
+  NVM_DEBUG("function(%p), arg(%p), pri(%d), tag(%p), unschedFunction(%p)\n",
+            function, arg, pri, tag, unchedFunction);
+}
+
+int EnvNVM::UnSchedule(void* arg, Priority pri) {
+  NVM_DEBUG("arg(%p), pri(%d)\n", arg, pri);
+
+  return 0;
+}
+
+void EnvNVM::StartThread(
+  void (*f)(void*),
+  void* a
+) {
   NVM_DEBUG("\n");
 
   return;
 }
 
-void EnvNVM::StartThread(void (*f)(void*), void* a) {
+
+void EnvNVM::WaitForJoin(void) {
+  NVM_DEBUG("\n");
+}
+
+unsigned int EnvNVM::GetThreadPoolQueueLen(Priority pri) const {
+  NVM_DEBUG("pri(%d)\n", pri);
+
+  return 0;
+}
+
+uint64_t EnvNVM::GetThreadID(void) const {
+  return 0;
+}
+
+void EnvNVM::LowerThreadPoolIOPriority(Priority pool) {
+  NVM_DEBUG("pool(%d)\n", pool);
+}
+
+uint64_t EnvNVM::NowNanos(void) {
   NVM_DEBUG("\n");
 
-  return;
-}
+  return 0;
+};
+
+std::string EnvNVM::GenerateUniqueId(void) {
+  return "foo";
+};
 
 Status EnvNVM::GetTestDirectory(std::string* path) {
-
   NVM_DEBUG("\n");
 
   return Status::NotFound();
 }
 
-Status EnvNVM::NewLogger(const std::string& fname,
-                 shared_ptr<Logger>* result) {
-
+Status EnvNVM::NewLogger(
+  const std::string& fname,
+  shared_ptr<Logger>* result
+) {
   NVMLogger *logger = new NVMLogger(InfoLogLevel::INFO_LEVEL);
 
   NVM_DEBUG(" fname(%s), result(%p)\n", fname.c_str(), logger);
