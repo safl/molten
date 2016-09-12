@@ -256,8 +256,10 @@ std::string EnvNVM::TimeToString(uint64_t stamp) {
   return std::string(buf);
 }
 
-Status EnvNVM::GetAbsolutePath(const std::string& db_path,
-                       std::string* output_path) {
+Status EnvNVM::GetAbsolutePath(
+  const std::string& db_path,
+  std::string* output_path
+) {
   NVM_DEBUG("db_path(%s)\n", db_path.c_str());
 
   char buf[PATH_MAX];

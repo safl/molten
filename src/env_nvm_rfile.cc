@@ -22,11 +22,12 @@ NVMRandomAccessFile::~NVMRandomAccessFile(void) {
   NVM_DEBUG("\n");
 }
 
-Status NVMRandomAccessFile::Read(uint64_t offset,
-                                 size_t n,
-                                 Slice* result,
-                                 char* scratch) const {
-
+Status NVMRandomAccessFile::Read(
+  uint64_t offset,
+  size_t n,
+  Slice* result,
+  char* scratch
+) const {
   NVM_DEBUG("offset(%lu), n(%lu), result(?), scratch(?)\n", offset, n);
 
   return Status::IOError();
