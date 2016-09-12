@@ -7,46 +7,59 @@ namespace rocksdb {
 //
 //      RANDOM ACCESS FILE
 //
-NVMRandomAccessFile::NVMRandomAccessFile(void) : RandomAccessFile() {}
-
-NVMRandomAccessFile::NVMRandomAccessFile(const std::string& fname,
-                                         const EnvOptions& options) : RandomAccessFile() {
-  fname_ = fname;
+NVMRandomAccessFile::NVMRandomAccessFile(void) : RandomAccessFile() {
+  NVM_DEBUG("\n");
 }
 
-NVMRandomAccessFile::~NVMRandomAccessFile(void) { }
+NVMRandomAccessFile::NVMRandomAccessFile(
+  const std::string& fname,
+  const EnvOptions& options
+) : RandomAccessFile() {
+  NVM_DEBUG("fname(%s), options(?)\n", fname.c_str());
+}
 
-Status NVMRandomAccessFile::Read(uint64_t offset, size_t n, Slice* result, char* scratch) const {
+NVMRandomAccessFile::~NVMRandomAccessFile(void) {
+  NVM_DEBUG("\n");
+}
 
-  // TODO: put something into result
-  return Status::OK();
+Status NVMRandomAccessFile::Read(uint64_t offset,
+                                 size_t n,
+                                 Slice* result,
+                                 char* scratch) const {
+
+  NVM_DEBUG("offset(%lu), n(%d), result(?), scratch(?)\n", offset, n);
+
+  return Status::IOError();
 }
 
 bool NVMRandomAccessFile::ShouldForwardRawRequest(void) const {
-  // TODO: return state
+  NVM_DEBUG("\n");
+
   return false;
 }
 
 void NVMRandomAccessFile::EnableReadAhead(void) {
-  // TODO: flip a switch
+  NVM_DEBUG("\n");
+
   return;
 }
 
 size_t NVMRandomAccessFile::GetUniqueId(char* id, size_t max_size) const {
+  NVM_DEBUG("id(%s), max_size(%d)\n", *id, max_size);
 
-  // TODO: implement IDs
   return 0;
 }
 
 void NVMRandomAccessFile::Hint(AccessPattern pattern)
 {
-  // TODO: store the hinted access pattern
+  NVM_DEBUG("pattern(%d)\n", pattern);
 }
 
 Status NVMRandomAccessFile::InvalidateCache(size_t offset, size_t length)
 {
-  // TODO: implement cache and do the actual invalidation
-  return Status::OK();
+  NVM_DEBUG("offset(%d), length(%d)\n");
+
+  return Status::IOError();
 }
 
 }       // namespace rocksdb

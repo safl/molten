@@ -4,38 +4,36 @@
 
 namespace rocksdb {
 
-NVMSequentialFile::NVMSequentialFile(void) : SequentialFile() {}
-
-NVMSequentialFile::NVMSequentialFile(const std::string& fname,
-                                     const EnvOptions& options) : SequentialFile() {
-  fname_ = fname;
+NVMSequentialFile::NVMSequentialFile(void) : SequentialFile() {
+  NVM_DEBUG("\n");
 }
 
-NVMSequentialFile::~NVMSequentialFile(void) { }
+NVMSequentialFile::NVMSequentialFile(
+  const std::string& fname,
+  const EnvOptions& options) : SequentialFile() {
+  NVM_DEBUG("fname(%s), options(?)\n", fname.c_str());
+}
+
+NVMSequentialFile::~NVMSequentialFile(void) {
+  NVM_DEBUG("\n");
+}
 
 Status NVMSequentialFile::Read(size_t n, Slice* result, char* scratch) {
+  NVM_DEBUG("n(%d), result(?), scratch(?)\n", n);
 
-  return Status::OK();
+  return Status::IOError();
 }
 
 Status NVMSequentialFile::Skip(uint64_t n) {
+  NVM_DEBUG("n(%d)\n", n);
 
-  return Status::OK();
+  return Status::IOError();
 }
 
 Status NVMSequentialFile::InvalidateCache(size_t offset, size_t length) {
+  NVM_DEBUG("offset(%d), length(%d)\n", offset, length);
 
-  return Status::OK();
-}
-
-Status EnvNVM::NewSequentialFile(const std::string& fname,
-                                 unique_ptr<SequentialFile>* result,
-                                 const EnvOptions& options) {
-  unique_ptr<NVMSequentialFile> file(new NVMSequentialFile(fname, options));
-
-  *result = std::move(file);
-
-  return Status::OK();
+  return Status::IOError();
 }
 
 }       // namespace rocksdb

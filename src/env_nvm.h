@@ -26,41 +26,38 @@ class NVMFile {
  public:
   explicit NVMFile(Env* env, const std::string& name);
 
-  void Ref(void);
-  void Unref(void);
-  
   Status Read(uint64_t offset, size_t n, Slice* result, char* scratch) const;
-  
-  uint64_t ModifiedTime(void) const;
-
   Status Append(const Slice& data);
   Status PositionedAppend(const Slice& data, uint64_t offset);
-    void Truncate(size_t size);
   Status Truncate(uint64_t size);
   Status Close(void);
   Status Sync(void);
   Status Fsync(void);
 
-  bool IsSyncThreadSafe() const;
-  void SetIOPriority(Env::IOPriority pri);
-  Env::IOPriority GetIOPriority();
+  uint64_t ModifiedTime(void) const;
   uint64_t GetFileSize();
   uint64_t Size(void) const;
 
-  void GetPreallocationStatus(size_t* block_size,
-                              size_t* last_allocated_block);
+  bool IsSyncThreadSafe() const;
+  void SetIOPriority(Env::IOPriority pri);
+  Env::IOPriority GetIOPriority();
+
+  void SetPreallocationBlockSize(size_t size);
+  void GetPreallocationStatus(size_t* block_size, size_t* last_allocated_block);
   size_t GetUniqueId(char* id, size_t max_size) const;
   Status InvalidateCache(size_t offset, size_t length);
 
-  void SetPreallocationBlockSize(size_t size);
   void PrepareWrite(size_t offset, size_t len);
+
+  void Ref(void);
+  void Unref(void);
 
  private:
   // Private since only Unref() should be used to delete it.
   ~NVMFile();
   // No copying allowed.
-  MemFile(const MemFile&);
-  void operator=(const MemFile&);
+  NVMFile(const NVMFile&);
+  void operator=(const NVMFile&);
 
   Env* env_;
   const std::string name_;
@@ -98,8 +95,7 @@ class NVMLogger : public Logger {
 
 class NVMSequentialFile : public SequentialFile {
 public:
-  NVMSequentialFile(const std::string& fname,
-                    const EnvOptions& options);
+  NVMSequentialFile(const std::string& fname, const EnvOptions& options);
   NVMSequentialFile(void);
   ~NVMSequentialFile(void);
 
@@ -110,14 +106,12 @@ public:
   Status InvalidateCache(size_t offset, size_t length);
 
 protected:
-  std::string fname_;
-
+  NVMFile *file_;
 };
 
 class NVMRandomAccessFile : public RandomAccessFile {
  public:
-  NVMRandomAccessFile(const std::string& fname,
-                      const EnvOptions& options);
+  NVMRandomAccessFile(const std::string& fname, const EnvOptions& options);
   NVMRandomAccessFile(void);
   ~NVMRandomAccessFile(void);
 
@@ -134,13 +128,12 @@ class NVMRandomAccessFile : public RandomAccessFile {
   Status InvalidateCache(size_t offset, size_t length);
 
 protected:
-  std::string fname_;
+  NVMFile *file_;
 };
 
 class NVMWritableFile : public WritableFile {
 public:
-  NVMWritableFile(NVMFile *file,
-                  const EnvOptions& options);
+  NVMWritableFile(const std::string& fname, const EnvOptions& options);
   NVMWritableFile(void);
   ~NVMWritableFile(void);
 
@@ -183,8 +176,8 @@ private:
   void operator=(const WritableFile&);
   void operator=(const NVMWritableFile&);
 
-  NVMFile *file_;
 protected:
+  NVMFile *file_;
 
 };
 
