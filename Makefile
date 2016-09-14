@@ -30,5 +30,5 @@ tags:
 	ctags * -R src
 	ctags -R --c++-kinds=+p --fields=+iaS --extra=+q /home/safl/git/rocksdb
 
-dev: configure make
+dev: clean configure make
 	./$(BUILD_DIR)/e01

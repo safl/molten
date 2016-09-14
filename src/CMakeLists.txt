@@ -1,6 +1,4 @@
 cmake_minimum_required(VERSION 2.8.3)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
-include(FeatureSummary)
 project(nvmenv CXX)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DNVM_DEBUG_ENABLED")
@@ -31,6 +29,7 @@ set(SOURCE_FILES
 
 add_executable(e01 ${HEADER_FILES} ${SOURCE_FILES})
 include_directories(/home/safl/git/rocksdb/include)
+include_directories(${CMAKE_SOURCE_DIR})
 target_link_libraries(e01 pthread rt gflags z /home/safl/git/rocksdb/librocksdb.a pthread)
 
 install(TARGETS e01 DESTINATION bin)

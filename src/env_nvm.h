@@ -1,3 +1,4 @@
+#include <map>
 #include "rocksdb/env.h"
 
 #ifndef __NVM_DEBUG_H
@@ -6,7 +7,7 @@
 #include <stdio.h>
 
 #ifdef NVM_DEBUG_ENABLED
-	#define NVM_DEBUG(x, ...) printf("%s:%s-%d: " x "\n", __FILE__, \
+	#define NVM_DEBUG(x, ...) printf("%s:%s-%d: " x "", __FILE__, \
 		__FUNCTION__, __LINE__, ##__VA_ARGS__);fflush(stdout);
 #else
 	#define NVM_DEBUG(x, ...)
@@ -22,76 +23,14 @@ class NVMSequentialFile;
 class NVMWritableFile;
 class NVMRandomAccessFile;
 
-class NVMFile {
- public:
-  NVMFile(void);
-  explicit NVMFile(Env* env, const std::string& name);
-
-  bool UseOSBuffer() const;
-  bool UseDirectIO() const;
-
-  Status Read(uint64_t offset, size_t n, Slice* result, char* scratch) const;
-  Status Append(const Slice& data);
-  Status PositionedAppend(const Slice& data, uint64_t offset);
-  Status Truncate(uint64_t size);
-  Status Close(void);
-  Status Sync(void);
-  Status Fsync(void);
-  Status Flush(void);
-
-  Status RangeSync(uint64_t offset, uint64_t nbytes);
-
-  uint64_t ModifiedTime(void) const;
-
-  uint64_t GetFileSize(void);
-
-  uint64_t Size(void) const;
-
-  bool IsSyncThreadSafe() const;
-  void SetIOPriority(Env::IOPriority pri);
-  Env::IOPriority GetIOPriority();
-
-  void SetPreallocationBlockSize(size_t size);
-  void GetPreallocationStatus(size_t* block_size, size_t* last_allocated_block);
-  size_t GetUniqueId(char* id, size_t max_size) const;
-  Status InvalidateCache(size_t offset, size_t length);
-
-  void PrepareWrite(size_t offset, size_t len);
-
-  void Ref(void);
-  void Unref(void);
-
- protected:
-  /*
-   * Pre-allocate space for a file.
-   */
-  Status Allocate(uint64_t offset, uint64_t len);
-
- private:
-  // Private since only Unref() should be used to delete it.
-  ~NVMFile();
-
-  // No copying allowed.
-  NVMFile(const NVMFile&);
-  void operator=(const NVMFile&);
-
-  Env* env_;
-  const std::string name_;
-  int refs_;
-};
-
+// Directory object represents collection of files and implements
+// filesystem operations that can be executed on directories.
 class NVMDirectory : public Directory {
  public:
-  explicit NVMDirectory(std::string name);
-  NVMDirectory(void);
-  ~NVMDirectory(void);
-  Status Fsync(void);
-  std::string getName(void);
+  ~NVMDirectory(void) {}
 
- private:
-  std::string name_;
-  std::vector<NVMFile> files_;
-  std::vector<NVMDirectory> dirs_;
+  // Fsync directory. Can be called concurrently from multiple threads.
+  virtual Status Fsync(void) override { return Status::OK(); }
 };
 
 class NVMLogger : public Logger {
@@ -109,9 +48,84 @@ class NVMLogger : public Logger {
   }
 };
 
+class NVMFile {
+ public:
+  NVMFile(void);
+  explicit NVMFile(EnvNVM* env, const std::string& dname, const std::string& fname);
+
+  bool UseOSBuffer() const;
+  bool UseDirectIO() const;
+
+  Status Read(uint64_t offset, size_t n, Slice* result, char* scratch) const;
+  Status Append(const Slice& data);
+  Status PositionedAppend(const Slice& data, uint64_t offset);
+  Status Truncate(uint64_t size);
+  Status Close(void);
+  Status Sync(void);
+  Status Fsync(void);
+  Status Flush(void);
+
+  Status RangeSync(uint64_t offset, uint64_t nbytes);
+
+  uint64_t ModifiedTime(void) const;
+
+  uint64_t GetFileSize(void) const;
+  uint64_t GetFileSize(void);
+
+  uint64_t Size(void) const;
+
+  size_t GetRequiredBufferAlignment(void) const;
+
+  bool IsSyncThreadSafe() const;
+  void SetIOPriority(Env::IOPriority pri);
+  Env::IOPriority GetIOPriority();
+
+  void SetPreallocationBlockSize(size_t size);
+  void GetPreallocationStatus(size_t* block_size, size_t* last_allocated_block);
+  size_t GetUniqueId(char* id, size_t max_size) const;
+  Status InvalidateCache(size_t offset, size_t length);
+
+  bool IsNamed(const std::string &name) const;
+  const std::string& GetName(void) const;
+  const std::string& GetDir(void) const;
+
+  void Rename(const std::string& name);
+  void PrepareWrite(size_t offset, size_t len);
+
+  void Ref(void);
+  void Unref(void);
+
+  /*
+   * Pre-allocate space for a file.
+   */
+  Status Allocate(uint64_t offset, uint64_t len);
+
+ protected:
+
+
+ private:
+  // Private since only Unref() should be used to delete it.
+  ~NVMFile();
+
+  // No copying allowed.
+  NVMFile(const NVMFile&);
+  void operator=(const NVMFile&);
+
+  EnvNVM* env_;
+  std::string dname_;
+  std::string fname_;
+
+  uint64_t fsize_;
+
+  char *buf_;
+  uint64_t buf_len_;
+
+  int refs_;
+};
+
 class NVMSequentialFile : public SequentialFile {
 public:
-  NVMSequentialFile(const std::string& fname, const EnvOptions& options);
+  NVMSequentialFile(NVMFile *file, const EnvOptions& options);
   NVMSequentialFile(void);
   ~NVMSequentialFile(void);
 
@@ -123,6 +137,7 @@ public:
 
 protected:
   NVMFile *file_;
+  uint64_t pos_;
 };
 
 class NVMRandomAccessFile : public RandomAccessFile {
@@ -258,6 +273,7 @@ protected:
 class EnvNVM : public Env {
  public:
   EnvNVM(void);
+  ~EnvNVM(void);
 
   // Create a logger
   //
@@ -371,8 +387,8 @@ class EnvNVM : public Env {
 
   // Store the size of fname in *file_size.
   virtual Status GetFileSize(
-    const std::string& fname,
-    uint64_t* file_size
+    const std::string& fpath,
+    uint64_t* fsize
   ) override;
 
   // Store the last modification time of fname in *file_mtime.
@@ -413,6 +429,59 @@ class EnvNVM : public Env {
   // REQUIRES: lock has not already been unlocked.
   virtual Status UnlockFile(FileLock* lock) override;
 
+    // Returns the number of micro-seconds since some fixed point in time. Only
+  // useful for computing deltas of time.
+  // However, it is often used as system time such as in GenericRateLimiter
+  // and other places so a port needs to return system time in order to work.
+  virtual uint64_t NowMicros(void) override;
+
+  // Returns the number of nano-seconds since some fixed point in time. Only
+  // useful for computing deltas of time in one run.
+  // Default implementation simply relies on NowMicros
+  virtual uint64_t NowNanos() override;
+
+  // Get the number of seconds since the Epoch, 1970-01-01 00:00:00 (UTC).
+  virtual Status GetCurrentTime(int64_t* unix_time) override;
+
+  // Converts seconds-since-Jan-01-1970 to a printable string
+  virtual std::string TimeToString(uint64_t time) override;
+
+  // Get the current host name.
+  virtual Status GetHostName(char* name, uint64_t len) override;
+
+  // Get full directory name for this db.
+  virtual Status GetAbsolutePath(
+    const std::string& db_path,
+    std::string* output_path
+  ) override;
+
+  // Generates a unique id that can be used to identify a db
+  virtual std::string GenerateUniqueId(void) override;
+
+  // *path is set to a temporary directory that can be used for testing. It may
+  // or many not have just been created. The directory may or may not differ
+  // between runs of the same process, but subsequent calls will return the
+  // same directory.
+  virtual Status GetTestDirectory(std::string* path) override;
+
+  // ADDITIONS the standard Env interface
+
+  // Split given path into a pair of strings, first containing dirname,
+  // second containing filename
+  std::pair<std::string, std::string> SplitPath(const std::string& path);
+
+  Status AddFile(NVMFile* file);
+
+  NVMFile* FindFile(const std::string& path);
+  NVMFile* FindFile(const std::string& dname, const std::string& fname);
+
+  Status RemoveFile(const std::string& path);
+  Status RemoveFile(const std::string& dname, const std::string& fname);
+
+
+
+  // REMOVE THIS STUFF LET SOME OTHER ENV MANAGE THAT IT
+
   // Arrange to run "(*function)(arg)" once in a background thread, in
   // the thread pool specified by pri. By default, jobs go to the 'LOW'
   // priority thread pool.
@@ -423,9 +492,13 @@ class EnvNVM : public Env {
   // serialized.
   // When the UnSchedule function is called, the unschedFunction
   // registered at the time of Schedule is invoked with arg as a parameter.
-  virtual void Schedule(void (*function)(void* arg), void* arg,
-                        Priority pri = LOW, void* tag = nullptr,
-                        void (*unschedFunction)(void* arg) = 0) override;
+  virtual void Schedule(
+    void (*function)(void* arg),
+    void* arg,
+    Priority pri = LOW,
+    void* tag = nullptr,
+    void (*unschedFunction)(void* arg) = 0
+  ) override;
 
   // Arrange to remove jobs for given arg from the queue_ if they are not
   // already scheduled. Caller is expected to have exclusive lock on arg.
@@ -474,47 +547,15 @@ class EnvNVM : public Env {
   // Returns the ID of the current thread.
   virtual uint64_t GetThreadID() const override;
 
-  // Returns the number of micro-seconds since some fixed point in time. Only
-  // useful for computing deltas of time.
-  // However, it is often used as system time such as in GenericRateLimiter
-  // and other places so a port needs to return system time in order to work.
-  virtual uint64_t NowMicros(void) override;
 
-  // Returns the number of nano-seconds since some fixed point in time. Only
-  // useful for computing deltas of time in one run.
-  // Default implementation simply relies on NowMicros
-  virtual uint64_t NowNanos() override;
 
-  // Get the number of seconds since the Epoch, 1970-01-01 00:00:00 (UTC).
-  virtual Status GetCurrentTime(int64_t* unix_time) override;
-
-  // Converts seconds-since-Jan-01-1970 to a printable string
-  virtual std::string TimeToString(uint64_t time) override;
-
-  // Get the current host name.
-  virtual Status GetHostName(char* name, uint64_t len) override;
-
-  // Get full directory name for this db.
-  virtual Status GetAbsolutePath(const std::string& db_path,
-      std::string* output_path) override;
-
-  // Generates a unique id that can be used to identify a db
-  virtual std::string GenerateUniqueId(void) override;
-
-  // *path is set to a temporary directory that can be used for testing. It may
-  // or many not have just been created. The directory may or may not differ
-  // between runs of the same process, but subsequent calls will return the
-  // same directory.
-  virtual Status GetTestDirectory(std::string* path) override;
 
  private:
   // No copying allowed
   EnvNVM(const Env&);
   void operator=(const Env&);
 
-  NVMFile* find(const std::string& fname);
-
-  NVMDirectory* fs_;
+  std::map<std::string, std::vector<NVMFile*>> fs_;
 
 };
 
